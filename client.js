@@ -2,55 +2,70 @@
 
 var net = require("net");
 var gamepad = require("gamepad");
-var debounce = require("debounce");
 
 var client = new net.Socket();
 gamepad.init();
 
 setInterval(gamepad.processEvents, 16);
 
-function isForward(val) {
-  const value = val.toString();
+const port = 1337;
+const host = "raspberrypi.local";
+const LEFT_STEAK = 14;
+const RIGHT_STEAK = 15;
+const SWAP_DIRECTION = 8;
+const STOP = -1;
+const MESSAGE_SUCCES_CONNECT = `connected: ${host}:${port}`;
 
-  if (value[0] === "-") return 2;
+let isForward = false;
 
-  return 1;
-}
-
-client.connect(
-  1337,
-  "raspberrypi.local",
-  function() {
-    gamepad.on(
-      "move",
-      debounce(function(id, axis, value) {
-        const data = {
-          id: id,
-          axis: axis,
-          value: value
-        };
-
-        let event = {
-          signal: 0
-        };
-
-        if (axis === 0 || axis === 1) {
-          event = {
-            signal: 1,
-            leftSpeed: 255,
-            leftDirection: isForward(value)
-          };
-        }
-
-        if (axis === 2 || axis === 3) {
-          event = {
-            signal: 1,
-            rightSpeed: 255,
-            rightDirection: isForward(value)
-          };
-        }
-        event.signal && client.write(JSON.stringify(event));
-      }, 10)
-    );
+const mapSpeed = value => {
+  if (value === STOP) {
+    return 0;
   }
-);
+
+  return 80;
+};
+
+let action = {
+  left: {
+    speed: 0,
+    forward: getForward(isForward)
+  },
+  right: {
+    speed: 0,
+    forward: getForward(isForward)
+  }
+};
+
+const getForward = isForward => (isForward ? 1 : 2);
+
+const onGamepad = (id, axis, value) => {
+  console.log(axis, value, id);
+
+  if (axis === SWAP_DIRECTION) {
+    isForward = !isForward;
+  }
+
+  if (axis === LEFT_STEAK) {
+    action.left = {
+      speed: mapSpeed(value),
+      forward: getForward(isForward)
+    };
+  }
+
+  if (axis === RIGHT_STEAK) {
+    action.right = {
+      speed: mapSpeed(value),
+      forward: getForward(isForward)
+    };
+  }
+
+  client.write(JSON.stringify(action) + "\n");
+};
+
+const onConnect = () => {
+  console.log(MESSAGE_SUCCES_CONNECT);
+  gamepad.on("move", onGamepad);
+};
+
+client.connect(port, host, onConnect);
