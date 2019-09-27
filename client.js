@@ -23,8 +23,10 @@ const mapSpeed = value => {
     return 0;
   }
 
-  return 80;
+  return 150;
 };
+
+const getForward = isForward => (isForward ? 1 : 2);
 
 let action = {
   left: {
@@ -36,8 +38,6 @@ let action = {
     forward: getForward(isForward)
   }
 };
-
-const getForward = isForward => (isForward ? 1 : 2);
 
 const onGamepad = (id, axis, value) => {
   console.log(axis, value, id);
@@ -69,3 +69,8 @@ const onConnect = () => {
 };
 
 client.connect(port, host, onConnect);
+
+process.on("uncaughtException", function(err) {
+  client.connect(port, host, onConnect);
+  console.log(err);
+});
